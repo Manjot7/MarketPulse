@@ -1,0 +1,84 @@
+version: "3.9"
+
+# SentimentEdge Docker Compose
+# Runs locally for development and testing.
+# In production, Kafka runs on Oracle VM 1 and Redis runs on Oracle VM 2.
+# API and Dashboard are deployed separately to HuggingFace Spaces.
+
+services:
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: sentimentedge-kafka
+    ports:
+      - "9092:9092"
+      - "9093:9093"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD", "kafka-topics.sh", "--bootstrap-server", "localhost:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: sentimentedge-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 60 1 --loglevel warning
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  producer:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.producer
+    container_name: sentimentedge-producer
+    env_file:
+      - .env
+    environment:
+      KAFKA_BROKER: kafka:9092
+      POLL_INTERVAL_SECONDS: 300
+    depends_on:
+      kafka:
+        condition: service_healthy
+    restart: unless-stopped
+
+  processor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.processor
+    container_name: sentimentedge-processor
+    env_file:
+      - .env
+    environment:
+      KAFKA_BROKER: kafka:9092
+      REDIS_HOST: redis
+    depends_on:
+      kafka:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  kafka_data:
+  redis_data:

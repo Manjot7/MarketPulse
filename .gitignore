@@ -1,0 +1,49 @@
+# Environment and secrets
+.env
+*.key
+*.pem
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Data files (large, fetched at runtime)
+data/raw/
+data/processed/
+data/models/
+
+# Reports (generated at runtime)
+reports/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# MLflow local artifacts
+mlruns/
+mlartifacts/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

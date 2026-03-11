@@ -1,0 +1,66 @@
+# Core data and ML
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.5.0
+scipy==1.13.0
+
+# Deep learning
+tensorflow==2.16.1
+keras==3.3.3
+
+# Gradient boosting
+xgboost==2.0.3
+lightgbm==4.3.0
+
+# Time series
+statsmodels==0.14.2
+prophet==1.1.5
+
+# NLP and sentiment
+transformers==4.41.2
+torch==2.3.0
+nltk==3.8.1
+
+# Technical indicators
+pandas-ta==0.3.14b0
+
+# Data ingestion
+yfinance==0.2.40
+requests==2.32.2
+
+# MLflow and experiment tracking
+mlflow==2.13.0
+dagshub==0.3.25
+boto3==1.34.120
+
+# Drift monitoring
+evidently==0.4.30
+
+# Kafka
+kafka-python==2.0.2
+
+# Redis
+redis==5.0.4
+
+# PostgreSQL
+psycopg2-binary==2.9.9
+
+# API serving
+fastapi==0.111.0
+uvicorn==0.30.0
+pydantic==2.7.3
+
+# Dashboard
+gradio==4.36.0
+plotly==5.22.0
+
+# Utilities
+python-dotenv==1.0.1
+tabulate==0.9.0
+matplotlib==3.9.0
+seaborn==0.13.2
+tqdm==4.66.4
+
+# Code quality
+flake8==7.0.0
+pytest==8.2.2

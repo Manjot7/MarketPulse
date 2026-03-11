@@ -1,0 +1,54 @@
+name: Weekly Retraining
+
+on:
+  schedule:
+    # Runs every Sunday at midnight UTC
+    - cron: "0 0 * * 0"
+  workflow_dispatch:
+    # Allows manual trigger from the GitHub Actions UI
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run retraining pipeline
+        env:
+          NEWSAPI_KEY:          ${{ secrets.NEWSAPI_KEY }}
+          DAGSHUB_USERNAME:     ${{ secrets.DAGSHUB_USERNAME }}
+          DAGSHUB_TOKEN:        ${{ secrets.DAGSHUB_TOKEN }}
+          MLFLOW_TRACKING_URI:  ${{ secrets.MLFLOW_TRACKING_URI }}
+          DATABASE_URL:         ${{ secrets.DATABASE_URL }}
+          R2_ENDPOINT_URL:      ${{ secrets.R2_ENDPOINT_URL }}
+          R2_ACCESS_KEY_ID:     ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          HF_TOKEN:             ${{ secrets.HF_TOKEN }}
+          REDIS_HOST:           ${{ secrets.REDIS_VM_IP }}
+          KAFKA_BROKER:         "${{ secrets.KAFKA_VM_IP }}:9092"
+        run: |
+          python -m src.mlops.retraining_pipeline
+
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Retraining pipeline failed. Check logs above."
