@@ -1,10 +1,3 @@
-"""
-Bidirectional LSTM Model
-Processes sequences in both forward and backward directions.
-Captures patterns that may only be apparent in reverse temporal context,
-such as price reversals following a peak.
-"""
-
 import tensorflow as tf
 from config.settings import EPOCHS, LEARNING_RATE
 

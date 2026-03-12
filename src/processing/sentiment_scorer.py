@@ -1,10 +1,3 @@
-"""
-Sentiment Scorer
-Computes daily sentiment scores from news headlines using FinBERT and VADER.
-FinBERT is the primary scorer, VADER is retained for comparison.
-Logic adapted from the original research paper implementation.
-"""
-
 import logging
 from statistics import mean
 
@@ -47,10 +40,6 @@ def get_finbert_pipeline():
 def finbert_score_single(headline):
     """
     Score a single headline using FinBERT.
-    Returns a float in range [-1, 1] where:
-        positive label  -> +score
-        neutral label   -> 0
-        negative label  -> -score
     """
     if not headline or not headline.strip():
         return 0.0
@@ -76,8 +65,6 @@ def finbert_score_single(headline):
 def vader_score_single(headline):
     """
     Score a single headline using VADER.
-    Returns a float in range [-1, 1].
-    Positive dominant -> +pos score, negative dominant -> -neg score, neutral -> 0.
     """
     if not headline or not headline.strip():
         return 0.0
@@ -104,7 +91,6 @@ def score_headlines(headlines):
     """
     Score a list of headlines and return the mean FinBERT and VADER scores for the day.
     Returns a tuple (finbert_mean, vader_mean).
-    Returns (0.0, 0.0) if headlines list is empty.
     """
     if not headlines:
         return 0.0, 0.0
@@ -119,7 +105,6 @@ def score_dataframe(df):
     """
     Score all headlines in a DataFrame that contains a 'headlines' column (list of strings).
     Adds 'finbert_score' and 'vader_score' columns in place.
-    Used during offline feature building on the full historical dataset.
     """
     logger.info(f"Scoring sentiment for {len(df)} rows...")
 

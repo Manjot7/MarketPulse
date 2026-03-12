@@ -1,10 +1,3 @@
-"""
-News Fetcher
-Pulls financial news headlines from NewsAPI for a given ticker and date range.
-Replaces the NY Times API used in the original research paper.
-Free tier allows 100 requests per day which is sufficient for our pipeline.
-"""
-
 import logging
 import time
 from datetime import datetime, timedelta
@@ -36,12 +29,6 @@ def fetch_headlines(ticker, date_str, num_articles=NEWS_PER_DAY):
     """
     Fetch top financial headlines for a ticker on a specific date from NewsAPI.
     Returns a list of headline strings. Returns empty list on failure.
-
-    Parameters
-    ----------
-    ticker      : stock ticker symbol e.g. AAPL
-    date_str    : date string in YYYY-MM-DD format
-    num_articles: number of headlines to fetch per day
     """
     if not NEWSAPI_KEY:
         logger.error("NEWSAPI_KEY not set in environment")
@@ -76,9 +63,6 @@ def fetch_headlines_range(ticker, start_date, end_date):
     """
     Fetch headlines for a ticker across a date range.
     Returns a DataFrame with columns: Date, Ticker, headlines (list), headline_count.
-
-    Note: NewsAPI free tier only allows history up to 1 month back.
-    For historical training data beyond 1 month we rely on pre-fetched CSVs.
     """
     records = []
     dates = pd.date_range(start=start_date, end=end_date, freq="B")

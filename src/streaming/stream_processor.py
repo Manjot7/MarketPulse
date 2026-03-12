@@ -1,26 +1,14 @@
-"""
-Stream Processor
-Kafka consumer running on the Oracle VM.
-Reads enriched tick messages from Kafka, runs live inference using the
-production model loaded from MLflow, writes predictions to Neon PostgreSQL
-and caches the latest prediction in Redis.
-
-Every DRIFT_CHECK_INTERVAL ticks, a drift check is run comparing recent
-incoming data against the training reference distribution. If drift severity
-exceeds the emergency threshold, retraining is triggered immediately in a
-background thread without interrupting the stream.
-"""
-
 import json
 import logging
 import time
 from collections import defaultdict
 
-import mlflow.pyfunc
+import boto3
 import numpy as np
 import pandas as pd
 import psycopg2
 import redis
+import tensorflow as tf
 from kafka import KafkaConsumer
 from kafka.errors import KafkaError
 
@@ -33,9 +21,12 @@ from config.settings import (
     REDIS_TTL,
     DATABASE_URL,
     DRIFT_CHECK_INTERVAL,
-    PROCESSED_DIR
+    PROCESSED_DIR,
+    R2_ENDPOINT_URL,
+    R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY,
+    R2_BUCKET_NAME
 )
-from src.mlops.experiment_tracker import get_production_model_uri
 from src.mlops.drift_monitor import check_and_handle_drift
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -44,7 +35,6 @@ logger = logging.getLogger(__name__)
 tick_counter = 0
 
 # Rolling buffer of recent ticks per ticker used as the current distribution
-# in drift checks. Stores the last DRIFT_CHECK_INTERVAL ticks per ticker.
 recent_ticks = defaultdict(list)
 
 # Features we track for drift detection — must match training feature names
@@ -86,16 +76,45 @@ def build_redis_client():
     return client
 
 
-def load_production_model(ticker):
+def get_production_model_name(ticker):
     """
-    Load the current production model for a given ticker from MLflow registry.
-    Returns None if no production model exists yet.
+    Query the production_models table in PostgreSQL to find which model
+    was promoted as the best sentiment-capable model for this ticker.
+    Falls back to GRU if no record exists yet.
     """
     try:
-        model_name = f"FinBERT-LSTM-{ticker}"
-        model_uri  = get_production_model_uri(model_name)
-        model      = mlflow.pyfunc.load_model(model_uri)
-        logger.info(f"Production model loaded for {ticker}")
+        conn   = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        cursor.execute("SELECT model_name FROM production_models WHERE ticker = %s", (ticker,))
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else "GRU"
+    except Exception as e:
+        logger.warning(f"Could not fetch production model name for {ticker}: {e}. Defaulting to GRU.")
+        return "GRU"
+
+
+def load_production_model(ticker):
+    """
+    Download the production model for a ticker from Cloudflare R2 and load it.
+    The model name is determined by querying the production_models table so the
+    stream processor always uses whichever model was promoted as best after training.
+    Returns None if the download or load fails.
+    """
+    try:
+        model_name = get_production_model_name(ticker)
+        r2_key     = f"models/{ticker}/{model_name}/{model_name}_{ticker}.keras"
+        local_path = f"/tmp/{model_name}_{ticker}.keras"
+
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=R2_ENDPOINT_URL,
+            aws_access_key_id=R2_ACCESS_KEY_ID,
+            aws_secret_access_key=R2_SECRET_ACCESS_KEY
+        )
+        s3.download_file(R2_BUCKET_NAME, r2_key, local_path)
+        model = tf.keras.models.load_model(local_path)
+        logger.info(f"Loaded {model_name} for {ticker} from R2")
         return model
     except Exception as e:
         logger.warning(f"Could not load production model for {ticker}: {e}")
@@ -238,7 +257,7 @@ def run_processor():
             if model is not None:
                 features        = np.array([[close, sentiment]])
                 predicted_close = float(model.predict(features)[0])
-                model_used      = f"FinBERT-LSTM-{ticker}"
+                model_used      = get_production_model_name(ticker)
 
             write_prediction_to_db(
                 db_conn, ticker, date,
@@ -264,7 +283,6 @@ def run_processor():
                 run_drift_check(ticker)
 
                 # Reload the production model after a drift check in case
-                # emergency retraining has promoted a new model during this cycle
                 models[ticker] = load_production_model(ticker)
 
         except Exception as e:

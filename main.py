@@ -1,14 +1,3 @@
-"""
-SentimentEdge
-Main entry point for the offline training pipeline.
-Fetches data, builds features, trains all models, logs to MLflow.
-
-Usage:
-    python main.py
-    python main.py --tickers AAPL MSFT GOOGL
-    python main.py --start 2021-01-01 --end 2024-01-01
-"""
-
 import argparse
 import logging
 import sys
@@ -18,14 +7,14 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler("sentimentedge_training.log")
+        logging.FileHandler("marketpulse_training.log")
     ]
 )
 logger = logging.getLogger(__name__)
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(description="SentimentEdge Training Pipeline")
+    parser = argparse.ArgumentParser(description="marketpulse Training Pipeline")
     parser.add_argument(
         "--tickers", nargs="+",
         default=None,
@@ -61,7 +50,7 @@ def run_pipeline(tickers, start, end, skip_news):
 
     target_tickers = tickers or TICKERS
 
-    logger.info(f"Starting SentimentEdge training pipeline")
+    logger.info(f"Starting marketpulse training pipeline")
     logger.info(f"Tickers: {target_tickers}")
     logger.info(f"Date range: {start} to {end}")
 

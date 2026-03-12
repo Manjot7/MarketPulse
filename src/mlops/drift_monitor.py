@@ -1,16 +1,3 @@
-"""
-Drift Monitor
-Uses Evidently AI to detect data drift and model performance degradation.
-Compares incoming live data distributions against the training reference dataset.
-Drift reports are saved as HTML files and uploaded to Cloudflare R2.
-
-When significant drift is detected (more than DRIFT_EMERGENCY_THRESHOLD fraction
-of features have drifted), an emergency retraining run is triggered immediately
-rather than waiting for the scheduled weekly retrain. This handles black swan
-events like market crashes, rate shocks, or geopolitical disruptions where the
-model's training distribution becomes invalid within hours.
-"""
-
 import logging
 import os
 import threading
@@ -35,12 +22,9 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 # Fraction of features that must show drift before triggering emergency retrain.
-# 0.3 means 30% of features drifted which indicates a genuine regime change
-# rather than normal market noise. Lower values retrain more aggressively.
 DRIFT_EMERGENCY_THRESHOLD = 0.3
 
-# Cooldown period in seconds between emergency retrains to avoid retraining
-# repeatedly during a prolonged volatile period (6 hours default)
+# Cooldown period in seconds between emergency retrains to avoid retraining repeatedly
 EMERGENCY_RETRAIN_COOLDOWN = 21600
 
 # Tracks the timestamp of the last emergency retrain to enforce the cooldown
@@ -50,7 +34,6 @@ _last_emergency_retrain_time = 0
 def build_r2_client():
     """
     Build and return a boto3 S3 client configured for Cloudflare R2.
-    R2 is S3-compatible so the standard boto3 client works with a custom endpoint.
     """
     return boto3.client(
         "s3",
@@ -63,14 +46,6 @@ def build_r2_client():
 def run_data_drift_report(reference_df, current_df, ticker):
     """
     Generate an Evidently data drift report comparing current vs reference distributions.
-    Saves the HTML report locally and uploads it to Cloudflare R2.
-
-    Parameters
-    ----------
-    reference_df : DataFrame of training data (reference distribution)
-    current_df   : DataFrame of recent live data (current distribution)
-    ticker       : ticker symbol for labeling
-
     Returns the local file path of the saved report.
     """
     report = Report(metrics=[DataDriftPreset()])
@@ -91,7 +66,6 @@ def run_data_drift_report(reference_df, current_df, ticker):
 def run_regression_report(reference_df, current_df, ticker):
     """
     Generate an Evidently regression performance report.
-    Requires columns: target (actual price) and prediction (model output).
     """
     report = Report(metrics=[RegressionPreset()])
     report.run(reference_data=reference_df, current_data=current_df)
@@ -125,10 +99,6 @@ def check_drift_severity(reference_df, current_df):
     """
     Run a drift check and return the fraction of features that have drifted.
     Returns a float between 0.0 and 1.0.
-
-    This is more useful than a binary yes/no because it distinguishes between
-    minor noise (a few features drift normally) and genuine regime change
-    (most features drift simultaneously, indicating a structural market shift).
     """
     report = Report(metrics=[DataDriftPreset()])
     report.run(reference_data=reference_df, current_data=current_df)
@@ -169,10 +139,6 @@ def trigger_emergency_retrain(ticker, drift_fraction):
     """
     Trigger an immediate out-of-schedule retraining run in a background thread.
     This is called when drift severity exceeds DRIFT_EMERGENCY_THRESHOLD.
-
-    Runs in a separate thread so the stream processor is not blocked during
-    the retraining process, which can take 30-60 minutes on the Oracle VM.
-
     A cooldown period prevents repeated triggers during prolonged volatility.
     """
     global _last_emergency_retrain_time
@@ -209,10 +175,8 @@ def trigger_emergency_retrain(ticker, drift_fraction):
 def check_and_handle_drift(reference_df, current_df, ticker):
     """
     Main drift handling function called by the stream processor.
-
     Runs drift severity check, saves a full report, and triggers emergency
     retraining if the drift fraction exceeds DRIFT_EMERGENCY_THRESHOLD.
-
     Returns the drift fraction so the caller can log or display it.
     """
     drift_fraction      = check_drift_severity(reference_df, current_df)

@@ -1,11 +1,3 @@
-"""
-GRU Model
-Gated Recurrent Unit model with same feature set as the LSTM baseline.
-GRU uses fewer parameters than LSTM (no output gate) which can improve
-generalization on smaller financial datasets.
-Comparison target: does GRU beat LSTM on this data?
-"""
-
 import tensorflow as tf
 from config.settings import EPOCHS, LEARNING_RATE
 

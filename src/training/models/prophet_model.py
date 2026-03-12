@@ -1,10 +1,3 @@
-"""
-Prophet Model
-Facebook Prophet time series model with FinBERT sentiment as an external regressor.
-Handles seasonality, holidays, and trend changes automatically.
-Serves as a strong traditional time series baseline alongside ARIMA.
-"""
-
 import logging
 
 import pandas as pd

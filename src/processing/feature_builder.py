@@ -1,10 +1,3 @@
-"""
-Feature Builder
-Merges price data, sentiment scores, and technical indicators into a unified feature matrix.
-Handles missing sentiment on non-trading days by forward-filling.
-Produces both sequence format (LSTM/GRU) and tabular format (XGBoost/LightGBM).
-"""
-
 import logging
 import os
 
@@ -73,7 +66,7 @@ def train_test_split_sequences(X, y, split=TRAIN_SPLIT):
 def build_tabular(ticker_df, feature_cols, target_col="direction", split=TRAIN_SPLIT):
     """
     Build flat tabular feature matrix for XGBoost/LightGBM/RandomForest.
-    Returns train/test splits without scaling (tree models don't require it).
+    Returns train/test splits without scaling
     """
     df = ticker_df.dropna(subset=feature_cols + [target_col])
     X  = df[feature_cols].values

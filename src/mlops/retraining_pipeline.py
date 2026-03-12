@@ -1,10 +1,3 @@
-"""
-Retraining Pipeline
-Triggered weekly by GitHub Actions.
-Pulls the latest data from Neon PostgreSQL, retrains all models,
-compares against the current production model, and promotes if improved.
-"""
-
 import logging
 import os
 
@@ -31,7 +24,6 @@ logger = logging.getLogger(__name__)
 def get_last_training_date():
     """
     Query Neon PostgreSQL to find the most recent date used in training.
-    If no training has been done before, returns the default start date.
     """
     try:
         conn   = psycopg2.connect(DATABASE_URL)
@@ -52,7 +44,6 @@ def get_last_training_date():
 def get_new_row_count(since_date):
     """
     Count how many new prediction rows have been inserted since the last training run.
-    Returns 0 if the database is not reachable.
     """
     try:
         conn   = psycopg2.connect(DATABASE_URL)
@@ -96,12 +87,6 @@ def run_retraining(triggered_by="github_actions"):
     """
     Main retraining entrypoint.
     Checks if enough new data exists, retrains if so, promotes best model if improved.
-
-    Parameters
-    ----------
-    triggered_by : string identifying what initiated this run.
-                   Either "github_actions" for the weekly scheduled run or
-                   "drift_monitor_emergency" for an immediate drift-triggered run.
     """
     setup_mlflow()
 

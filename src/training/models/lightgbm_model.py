@@ -1,10 +1,3 @@
-"""
-LightGBM Model
-Gradient boosted trees using leaf-wise growth strategy.
-Generally faster than XGBoost and performs similarly on financial tabular data.
-Included for direct head-to-head comparison with XGBoost.
-"""
-
 import logging
 
 import lightgbm as lgb

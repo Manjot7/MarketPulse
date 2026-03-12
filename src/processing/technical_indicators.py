@@ -1,10 +1,3 @@
-"""
-Technical Indicators
-Computes RSI, MACD, Bollinger Bands, EMA, OBV, and ATR from OHLCV price data.
-These features feed the XGBoost and LightGBM models.
-All computations use pandas-ta for consistency and speed.
-"""
-
 import logging
 
 import pandas as pd
@@ -28,7 +21,7 @@ def compute_indicators(df):
     Add all technical indicator columns to a price DataFrame.
     Input DataFrame must have columns: Open, High, Low, Close, Volume.
     Returns the same DataFrame with additional indicator columns appended.
-    NaN rows at the start (due to lookback periods) are dropped.
+    NaN rows at the start due to lookback periods are dropped.
     """
     df = df.copy()
     df = df.sort_values("Date").reset_index(drop=True)

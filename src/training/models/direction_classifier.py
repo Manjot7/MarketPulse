@@ -1,11 +1,3 @@
-"""
-Direction Classifier
-Random Forest classifier predicting whether tomorrow's price will be higher or lower.
-Reframes the regression problem as binary classification for cleaner, more honest metrics.
-Uses all technical indicators and sentiment features.
-Evaluated on accuracy, F1, precision, recall rather than MAE/MAPE.
-"""
-
 import logging
 
 from sklearn.ensemble import RandomForestClassifier

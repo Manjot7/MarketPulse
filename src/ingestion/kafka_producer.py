@@ -1,11 +1,3 @@
-"""
-Kafka Producer
-Runs continuously on the Oracle VM.
-Every market day at configurable intervals it fetches the latest price tick
-and news headlines, scores sentiment, and publishes an enriched JSON message
-to the Kafka raw ticks topic.
-"""
-
 import json
 import logging
 import os

@@ -1,11 +1,3 @@
-"""
-CNN-LSTM Hybrid Model
-1D Convolutional layers extract local patterns from the price sequence,
-then LSTM layers learn temporal dependencies across those patterns.
-CNNs are effective at capturing short-term technical patterns like head-and-shoulders
-or double bottoms before the LSTM models the longer trend.
-"""
-
 import tensorflow as tf
 from config.settings import EPOCHS, LEARNING_RATE
 

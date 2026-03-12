@@ -21,16 +21,13 @@ transformers==4.41.2
 torch==2.3.0
 nltk==3.8.1
 
-# Technical indicators
-pandas-ta==0.3.14b0
-
 # Data ingestion
 yfinance==0.2.40
 requests==2.32.2
 
 # MLflow and experiment tracking
 mlflow==2.13.0
-dagshub==0.3.25
+dagshub
 boto3==1.34.120
 
 # Drift monitoring

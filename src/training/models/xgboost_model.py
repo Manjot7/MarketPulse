@@ -1,11 +1,3 @@
-"""
-XGBoost Model
-Gradient boosted trees trained on tabular technical indicator features.
-Does not use sequences - treats each trading day independently.
-Fast to train and highly interpretable via SHAP values.
-Used for both regression (price prediction) and classification (direction).
-"""
-
 import logging
 
 import xgboost as xgb

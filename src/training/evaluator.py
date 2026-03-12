@@ -1,10 +1,3 @@
-"""
-Evaluator
-Computes regression and classification metrics for all models.
-Generates comparison plots and saves them to the reports directory.
-Produces a Markdown results table for the README.
-"""
-
 import logging
 import os
 
@@ -77,7 +70,6 @@ def plot_predictions(y_true, predictions_dict, ticker, save=True):
     """
     Plot actual vs predicted prices for multiple models on the same chart.
     predictions_dict: {model_name: y_pred_array}
-    Saves to reports/plots/{ticker}_predictions.png
     """
     plt.figure(figsize=(14, 7))
     plt.plot(y_true, linewidth=2.5, color="black", label="Actual Price")

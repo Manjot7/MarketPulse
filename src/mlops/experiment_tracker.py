@@ -1,9 +1,3 @@
-"""
-Experiment Tracker
-Thin MLflow wrapper for logging runs, metrics, parameters, and artifacts to DagsHub.
-Keeps MLflow calls centralized so training code stays clean.
-"""
-
 import logging
 import os
 
@@ -21,12 +15,19 @@ from config.settings import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+SENTIMENT_CAPABLE_MODELS = [
+    "LSTM-Baseline",
+    "FinBERT-LSTM",
+    "GRU",
+    "BiLSTM",
+    "CNN-LSTM"
+]
+
 
 def setup_mlflow():
     """
     Configure MLflow to use DagsHub as the remote tracking server.
     Sets credentials via environment variables for the DagsHub HTTP auth.
-    Must be called once before any logging operations.
     """
     if not MLFLOW_TRACKING_URI:
         logger.warning("MLFLOW_TRACKING_URI not set. Using local tracking.")
@@ -44,14 +45,7 @@ def setup_mlflow():
 def log_run(model_name, ticker, params, metrics, artifact_paths=None):
     """
     Log a single training run to MLflow.
-
-    Parameters
-    ----------
-    model_name      : string identifier for the model e.g. "FinBERT-LSTM"
-    ticker          : stock ticker this run was trained on e.g. "AAPL"
-    params          : dict of hyperparameters
-    metrics         : dict of evaluation metrics
-    artifact_paths  : list of local file paths to log as artifacts
+    Returns the MLflow run_id string.
     """
     run_name = f"{model_name}_{ticker}"
 
@@ -77,7 +71,6 @@ def log_run(model_name, ticker, params, metrics, artifact_paths=None):
 def register_model(model_name, run_id, artifact_path="model"):
     """
     Register a trained model in the MLflow Model Registry.
-    The model will appear in the DagsHub registry under model_name.
     """
     model_uri = f"runs:/{run_id}/{artifact_path}"
     result    = mlflow.register_model(model_uri=model_uri, name=model_name)
@@ -88,7 +81,6 @@ def register_model(model_name, run_id, artifact_path="model"):
 def promote_model(model_name, version, stage="Production"):
     """
     Promote a registered model version to a lifecycle stage.
-    Stages: Staging, Production, Archived.
     """
     client = mlflow.tracking.MlflowClient()
     client.transition_model_version_stage(
@@ -105,3 +97,68 @@ def get_production_model_uri(model_name):
     Used by the stream processor and retraining pipeline to load the best model.
     """
     return f"models:/{model_name}/Production"
+
+
+def promote_best_model_for_ticker(ticker, dl_results):
+    """
+    After all models finish training for a ticker, find the sentiment-capable
+    sequence model with the lowest MAPE and register it as the Production model.
+    Only considers SENTIMENT_CAPABLE_MODELS — ARIMA, Prophet, XGBoost, LightGBM,
+    and RandomForest are excluded because they cannot consume the live sentiment
+    signal from the Kafka stream.\
+    """
+    candidates = [
+        r for r in dl_results
+        if r.get("model") in SENTIMENT_CAPABLE_MODELS and r.get("mape_pct") is not None
+    ]
+
+    if not candidates:
+        logger.warning(f"No sentiment-capable model results found for {ticker}. Skipping promotion.")
+        return
+
+    best = min(candidates, key=lambda r: r["mape_pct"])
+    best_model_name = best["model"]
+    best_mape       = best["mape_pct"]
+
+    logger.info(
+        f"Best sentiment-capable model for {ticker}: {best_model_name} "
+        f"(MAPE={best_mape:.3f}%) — promoting to Production"
+    )
+
+    client      = mlflow.tracking.MlflowClient()
+    experiment  = client.get_experiment_by_name(MLFLOW_EXPERIMENT_NAME)
+
+    if experiment is None:
+        logger.warning(f"MLflow experiment '{MLFLOW_EXPERIMENT_NAME}' not found. Skipping promotion.")
+        return
+
+    runs = client.search_runs(
+        experiment_ids=[experiment.experiment_id],
+        filter_string=f"tags.model = '{best_model_name}' AND tags.ticker = '{ticker}'",
+        order_by=["metrics.mape ASC"],
+        max_results=1
+    )
+
+    if not runs:
+        logger.warning(f"No MLflow run found for {best_model_name} / {ticker}. Skipping promotion.")
+        return
+
+    run_id        = runs[0].info.run_id
+    registry_name = f"Production-{ticker}"
+
+    try:
+        result = mlflow.register_model(
+            model_uri=f"runs:/{run_id}/model",
+            name=registry_name
+        )
+        client.transition_model_version_stage(
+            name=registry_name,
+            version=result.version,
+            stage="Production"
+        )
+        logger.info(
+            f"Registered and promoted {best_model_name} for {ticker} "
+            f"as {registry_name} v{result.version} (Production)"
+        )
+    except Exception as e:
+        logger.warning(f"Model promotion failed for {ticker}: {e}")

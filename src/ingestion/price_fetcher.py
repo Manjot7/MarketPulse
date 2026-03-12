@@ -1,9 +1,3 @@
-"""
-Price Fetcher
-Pulls historical and live OHLCV data from Yahoo Finance via yfinance.
-Supports multiple tickers and returns clean DataFrames ready for feature engineering.
-"""
-
 import logging
 import time
 from datetime import datetime, timedelta

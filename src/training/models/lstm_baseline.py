@@ -1,10 +1,3 @@
-"""
-LSTM Baseline Model
-3-layer LSTM trained on price data only with no sentiment features.
-Architecture preserved from the original research paper for benchmark comparison.
-Baseline result from paper: MAE 180.58, MAPE 1.46%, Accuracy 98.54%
-"""
-
 import tensorflow as tf
 from config.settings import EPOCHS, LEARNING_RATE, SEQUENCE_LENGTH
 

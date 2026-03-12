@@ -1,10 +1,3 @@
-"""
-ARIMA Model
-Classical AutoRegressive Integrated Moving Average baseline.
-No machine learning, no sentiment. Pure statistical time series forecasting.
-Establishes the floor: how much does adding ML and sentiment actually improve results?
-"""
-
 import logging
 import warnings
 
@@ -37,12 +30,7 @@ def check_stationarity(series):
 
 def train_and_predict(ticker_df):
     """
-    Fit ARIMA on the training portion and generate one-step-ahead predictions
-    on the test portion using a rolling window approach.
-
-    Rolling prediction is more realistic than fitting once and forecasting ahead
-    because ARIMA degrades significantly over long forecast horizons.
-
+    Fit ARIMA on the training portion and generate one-step-ahead predictions on the test portion using a rolling window approach.
     Returns a DataFrame with columns: Date, actual, predicted.
     """
     close = ticker_df["Close"].values

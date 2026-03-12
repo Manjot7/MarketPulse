@@ -1,11 +1,3 @@
-"""
-Trainer
-Orchestrates training of all models for all tickers.
-Logs every run to MLflow on DagsHub.
-Saves model artifacts locally and uploads to Cloudflare R2.
-Writes final metrics to Neon PostgreSQL.
-"""
-
 import logging
 import os
 import pickle

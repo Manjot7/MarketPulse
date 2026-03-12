@@ -1,11 +1,3 @@
-"""
-FinBERT-LSTM Model
-3-layer LSTM trained on price data combined with FinBERT sentiment scores.
-Architecture preserved from the original research paper.
-Paper result: MAE 174.94, MAPE 1.41%, Accuracy 98.59% on NDX (Oct 2020 - Sep 2022)
-This is the core model of the project and the primary benchmark to beat.
-"""
-
 import tensorflow as tf
 from config.settings import EPOCHS, LEARNING_RATE
 
@@ -14,7 +6,6 @@ def build_model(input_shape):
     """
     Build and compile the FinBERT-LSTM model.
     Input shape is (sequence_length, num_features) where features include sentiment.
-    Architecture uses 3 LSTM layers (70, 30, 10 units) matching the original paper.
     """
     tf.random.set_seed(1234)
 

@@ -1,10 +1,3 @@
-"""
-FastAPI Serving Endpoint
-Deployed on HuggingFace Spaces as a Docker space.
-Provides REST endpoints for live price prediction, model metrics, and health checks.
-Reads latest predictions from Redis cache, falls back to Neon PostgreSQL.
-"""
-
 import json
 import logging
 import os

@@ -1,10 +1,3 @@
-"""
-Gradio Dashboard
-Deployed on HuggingFace Spaces.
-Displays live price predictions, sentiment scores, model comparison table,
-and prediction history charts. Auto-refreshes every 60 seconds.
-"""
-
 import json
 import logging
 from datetime import datetime, timedelta, date
