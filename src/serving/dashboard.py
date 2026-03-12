@@ -1,6 +1,6 @@
 import json
 import logging
-from datetime import datetime, timedelta, date
+from datetime import datetime, date
 
 import gradio as gr
 import pandas as pd
@@ -18,7 +18,294 @@ from config.settings import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
+#
+CUSTOM_CSS = """
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&family=Inter:wght@300;400;500&display=swap');
 
+:root {
+    --bg-primary:    #080c14;
+    --bg-card:       #0d1424;
+    --bg-card2:      #111827;
+    --border:        rgba(99, 179, 237, 0.12);
+    --border-bright: rgba(99, 179, 237, 0.35);
+    --accent:        #63b3ed;
+    --accent2:       #76e4c4;
+    --accent3:       #f6ad55;
+    --text-primary:  #e2e8f0;
+    --text-muted:    #718096;
+    --text-dim:      #4a5568;
+    --red:           #fc8181;
+    --green:         #68d391;
+}
+
+/*
+body, .gradio-container {
+    background: var(--bg-primary) !important;
+    font-family: 'Inter', sans-serif !important;
+    color: var(--text-primary) !important;
+}
+
+.gradio-container {
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    padding: 0 24px 48px !important;
+}
+
+/*
+.mp-header {
+    padding: 40px 0 32px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+}
+
+.mp-header h1 {
+    font-family: 'Syne', sans-serif !important;
+    font-size: 2.2rem !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, #63b3ed 0%, #76e4c4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin: 0 0 6px !important;
+    line-height: 1.1 !important;
+}
+
+.mp-header p {
+    font-family: 'DM Mono', monospace !important;
+    font-size: 0.78rem !important;
+    color: var(--text-muted) !important;
+    letter-spacing: 0.05em;
+    margin: 0 !important;
+}
+
+.mp-live-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(104, 211, 145, 0.08);
+    border: 1px solid rgba(104, 211, 145, 0.25);
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--green);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-top: 12px;
+    width: fit-content;
+}
+
+.mp-live-badge::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+}
+
+/*
+.mp-stats-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.mp-stat-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.mp-stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    opacity: 0.6;
+}
+
+.mp-stat-card:hover { border-color: var(--border-bright); }
+
+.mp-stat-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+}
+
+.mp-stat-value {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.mp-stat-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    margin-top: 6px;
+}
+
+/*
+.mp-controls {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/*
+.mp-section-label {
+    font-family: 'DM Mono', monospace !important;
+    font-size: 0.68rem !important;
+    color: var(--accent) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.15em !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 8px !important;
+    border-bottom: 1px solid var(--border) !important;
+}
+
+/*
+.dark, [data-testid="block"] {
+    background: transparent !important;
+}
+
+label, .block-label {
+    font-family: 'DM Mono', monospace !important;
+    font-size: 0.72rem !important;
+    color: var(--text-muted) !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.08em !important;
+}
+
+/* Dropdown */
+select, .wrap {
+    background: var(--bg-card2) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 8px !important;
+    color: var(--text-primary) !important;
+    font-family: 'Inter', sans-serif !important;
+}
+
+/* Buttons */
+button.primary {
+    background: linear-gradient(135deg, #2b6cb0, #2c7a7b) !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 0.78rem !important;
+    letter-spacing: 0.05em !important;
+    color: #fff !important;
+    transition: opacity 0.2s !important;
+}
+
+button.primary:hover { opacity: 0.85 !important; }
+
+/* Plots */
+.plot-container, [data-testid="Plot"] {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    overflow: hidden !important;
+}
+
+/* Dataframe */
+.dataframe-container, table {
+    background: var(--bg-card) !important;
+    border: 1px solid var(--border) !important;
+    border-radius: 12px !important;
+    font-family: 'DM Mono', monospace !important;
+    font-size: 0.78rem !important;
+}
+
+th {
+    background: var(--bg-card2) !important;
+    color: var(--accent) !important;
+    font-size: 0.68rem !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.1em !important;
+    border-bottom: 1px solid var(--border-bright) !important;
+    padding: 10px 14px !important;
+}
+
+td {
+    color: var(--text-primary) !important;
+    border-bottom: 1px solid var(--border) !important;
+    padding: 9px 14px !important;
+}
+
+tr:hover td { background: rgba(99, 179, 237, 0.04) !important; }
+
+/* Markdown */
+.prose h1, .prose h2, .prose h3,
+.markdown h1, .markdown h2, .markdown h3 {
+    font-family: 'Syne', sans-serif !important;
+    color: var(--text-primary) !important;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+"""
+
+#
+CHART_LAYOUT = dict(
+    paper_bgcolor="rgba(13,20,36,0)",
+    plot_bgcolor="rgba(13,20,36,0)",
+    font=dict(family="DM Mono, monospace", color="#718096", size=11),
+    xaxis=dict(
+        gridcolor="rgba(99,179,237,0.06)",
+        linecolor="rgba(99,179,237,0.15)",
+        tickcolor="rgba(99,179,237,0.15)",
+        tickfont=dict(color="#4a5568", size=10),
+        zerolinecolor="rgba(99,179,237,0.1)",
+    ),
+    yaxis=dict(
+        gridcolor="rgba(99,179,237,0.06)",
+        linecolor="rgba(99,179,237,0.15)",
+        tickcolor="rgba(99,179,237,0.15)",
+        tickfont=dict(color="#4a5568", size=10),
+        zerolinecolor="rgba(99,179,237,0.1)",
+    ),
+    legend=dict(
+        bgcolor="rgba(13,20,36,0.7)",
+        bordercolor="rgba(99,179,237,0.2)",
+        borderwidth=1,
+        font=dict(color="#a0aec0", size=11),
+    ),
+    margin=dict(l=48, r=24, t=48, b=40),
+    hoverlabel=dict(
+        bgcolor="#0d1424",
+        bordercolor="rgba(99,179,237,0.3)",
+        font=dict(family="DM Mono, monospace", color="#e2e8f0", size=11),
+    ),
+)
+
+
+#
 def get_redis_client():
     try:
         client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
@@ -33,13 +320,8 @@ def get_db_connection():
 
 
 def fetch_latest_predictions():
-    """
-    Fetch the latest prediction for each ticker from Redis or PostgreSQL.
-    Returns a list of dicts.
-    """
     results  = []
     redis_cl = get_redis_client()
-
     for ticker in TICKERS:
         try:
             if redis_cl:
@@ -47,41 +329,32 @@ def fetch_latest_predictions():
                 if cached:
                     results.append(json.loads(cached))
                     continue
-
             conn   = get_db_connection()
             cursor = conn.cursor()
             cursor.execute(
                 """
                 SELECT ticker, date, predicted_close, actual_close, sentiment_score
-                FROM predictions
-                WHERE ticker = %s
+                FROM predictions WHERE ticker = %s
                 ORDER BY created_at DESC LIMIT 1
                 """,
                 (ticker,)
             )
             row = cursor.fetchone()
             conn.close()
-
             if row:
                 results.append({
                     "ticker":          row[0],
                     "date":            str(row[1]),
                     "predicted_close": row[2],
                     "actual_close":    row[3],
-                    "sentiment":       row[4]
+                    "sentiment":       row[4],
                 })
-
         except Exception as e:
             logger.warning(f"Failed to fetch prediction for {ticker}: {e}")
-
     return results
 
 
 def fetch_prediction_history(ticker, days=60):
-    """
-    Fetch prediction vs actual history for a ticker from PostgreSQL.
-    Returns a DataFrame with Date, predicted_close, actual_close columns.
-    """
     try:
         conn   = get_db_connection()
         cursor = conn.cursor()
@@ -90,191 +363,252 @@ def fetch_prediction_history(ticker, days=60):
             SELECT date, predicted_close, actual_close, sentiment_score
             FROM predictions
             WHERE ticker = %s AND actual_close IS NOT NULL
-            ORDER BY date DESC
-            LIMIT %s
+            ORDER BY date DESC LIMIT %s
             """,
             (ticker, days)
         )
         rows = cursor.fetchall()
         conn.close()
-
         df = pd.DataFrame(rows, columns=["Date", "Predicted", "Actual", "Sentiment"])
-        df = df.sort_values("Date")
-        return df
-
+        return df.sort_values("Date")
     except Exception as e:
         logger.warning(f"History fetch failed for {ticker}: {e}")
         return pd.DataFrame()
 
 
 def fetch_model_metrics():
-    """
-    Fetch model comparison metrics from PostgreSQL.
-    Returns a DataFrame.
-    """
     try:
         conn   = get_db_connection()
         cursor = conn.cursor()
         cursor.execute(
             """
             SELECT model_name, ticker, mae, mape, rmse, dir_accuracy, trained_at
-            FROM model_metrics
-            ORDER BY mae ASC
+            FROM model_metrics ORDER BY mape ASC
             """
         )
         rows = cursor.fetchall()
         conn.close()
-
-        df = pd.DataFrame(rows, columns=["Model", "Ticker", "MAE", "MAPE", "RMSE", "Dir Accuracy", "Trained At"])
-        return df
-
+        return pd.DataFrame(rows, columns=["Model", "Ticker", "MAE", "MAPE %", "RMSE", "Dir Acc", "Trained At"])
     except Exception as e:
         logger.warning(f"Metrics fetch failed: {e}")
         return pd.DataFrame()
 
 
+#
 def build_prediction_chart(ticker):
-    """
-    Build a Plotly chart comparing actual vs predicted prices for a ticker.
-    """
     df = fetch_prediction_history(ticker)
-
-    if df.empty:
-        fig = go.Figure()
-        fig.add_annotation(text="No data available yet", showarrow=False, font=dict(size=16))
-        return fig
 
     fig = go.Figure()
 
-    fig.add_trace(go.Scatter(
-        x=df["Date"], y=df["Actual"],
-        name="Actual Price",
-        line=dict(color="#2c3e50", width=2.5)
-    ))
-
-    fig.add_trace(go.Scatter(
-        x=df["Date"], y=df["Predicted"],
-        name="Predicted Price",
-        line=dict(color="#e74c3c", width=1.8, dash="dash")
-    ))
+    if df.empty:
+        fig.add_annotation(
+            text="Awaiting market data…",
+            showarrow=False,
+            font=dict(family="DM Mono, monospace", size=13, color="#4a5568"),
+            xref="paper", yref="paper", x=0.5, y=0.5
+        )
+    else:
+        # Fill between actual and predicted
+        fig.add_trace(go.Scatter(
+            x=pd.concat([df["Date"], df["Date"][::-1]]),
+            y=pd.concat([df["Actual"], df["Predicted"][::-1]]),
+            fill="toself",
+            fillcolor="rgba(99,179,237,0.04)",
+            line=dict(color="rgba(0,0,0,0)"),
+            showlegend=False,
+            hoverinfo="skip",
+        ))
+        fig.add_trace(go.Scatter(
+            x=df["Date"], y=df["Actual"],
+            name="Actual",
+            line=dict(color="#63b3ed", width=2),
+            mode="lines",
+        ))
+        fig.add_trace(go.Scatter(
+            x=df["Date"], y=df["Predicted"],
+            name="Predicted",
+            line=dict(color="#76e4c4", width=1.5, dash="dot"),
+            mode="lines",
+        ))
 
     fig.update_layout(
-        title=f"{ticker} Actual vs Predicted Closing Price",
-        xaxis_title="Date",
-        yaxis_title="Price (USD)",
-        legend=dict(x=0, y=1),
-        template="plotly_white",
-        height=450
+        **CHART_LAYOUT,
+        title=dict(
+            text=f"<b>{ticker}</b>  Actual vs Predicted Close",
+            font=dict(family="Syne, sans-serif", size=15, color="#a0aec0"),
+            x=0.01, xanchor="left",
+        ),
+        height=420,
     )
-
     return fig
 
 
 def build_sentiment_bar():
-    """
-    Build a bar chart showing the latest FinBERT sentiment score per ticker.
-    """
     predictions = fetch_latest_predictions()
+    fig = go.Figure()
 
     if not predictions:
-        fig = go.Figure()
-        fig.add_annotation(text="No sentiment data available", showarrow=False)
-        return fig
+        fig.add_annotation(
+            text="Awaiting sentiment data…",
+            showarrow=False,
+            font=dict(family="DM Mono, monospace", size=13, color="#4a5568"),
+            xref="paper", yref="paper", x=0.5, y=0.5
+        )
+    else:
+        tickers    = [p["ticker"] for p in predictions]
+        sentiments = [p.get("sentiment", 0.0) for p in predictions]
+        colors     = ["#68d391" if s >= 0 else "#fc8181" for s in sentiments]
 
-    tickers    = [p["ticker"] for p in predictions]
-    sentiments = [p.get("sentiment", 0.0) for p in predictions]
-    colors     = ["#2ecc71" if s >= 0 else "#e74c3c" for s in sentiments]
+        fig.add_trace(go.Bar(
+            x=tickers,
+            y=sentiments,
+            marker=dict(
+                color=colors,
+                line=dict(color="rgba(0,0,0,0)", width=0),
+                opacity=0.85,
+            ),
+            text=[f"{s:+.3f}" for s in sentiments],
+            textposition="outside",
+            textfont=dict(family="DM Mono, monospace", size=10, color="#a0aec0"),
+        ))
 
-    fig = go.Figure(go.Bar(
-        x=tickers, y=sentiments,
-        marker_color=colors,
-        text=[f"{s:.3f}" for s in sentiments],
-        textposition="outside"
-    ))
+        fig.add_hline(
+            y=0,
+            line=dict(color="rgba(99,179,237,0.3)", width=1, dash="dot"),
+        )
 
     fig.update_layout(
-        title="Current FinBERT Sentiment Score by Ticker",
-        yaxis_title="Sentiment Score (-1 to 1)",
-        yaxis_range=[-1.1, 1.1],
-        template="plotly_white",
-        height=350
+        **CHART_LAYOUT,
+        title=dict(
+            text="<b>FinBERT Sentiment</b>  by Ticker",
+            font=dict(family="Syne, sans-serif", size=15, color="#a0aec0"),
+            x=0.01, xanchor="left",
+        ),
+        yaxis_range=[-1.15, 1.15],
+        height=420,
+        showlegend=False,
     )
-
     return fig
 
 
 def get_summary_table():
-    """
-    Return a summary DataFrame of the latest predictions for display.
-    """
     predictions = fetch_latest_predictions()
     if not predictions:
-        return pd.DataFrame(columns=["Ticker", "Date", "Predicted Close", "Actual Close", "Sentiment"])
+        return pd.DataFrame(columns=["Ticker", "Date", "Predicted $", "Actual $", "Sentiment", "Signal"])
 
     rows = []
     for p in predictions:
+        pred = p.get("predicted_close")
+        act  = p.get("actual_close")
+        sent = p.get("sentiment", 0.0) or 0.0
+        signal = "▲ BULLISH" if sent > 0.1 else ("▼ BEARISH" if sent < -0.1 else "◆ NEUTRAL")
         rows.append({
-            "Ticker":          p.get("ticker", ""),
-            "Date":            p.get("date", ""),
-            "Predicted Close": f"${p.get('predicted_close', 'N/A')}",
-            "Actual Close":    f"${p.get('actual_close', 'N/A')}",
-            "Sentiment":       round(p.get("sentiment", 0.0), 4)
+            "Ticker":      p.get("ticker", ""),
+            "Date":        p.get("date", ""),
+            "Predicted $": f"${pred:.2f}" if pred else "—",
+            "Actual $":    f"${act:.2f}"  if act  else "—",
+            "Sentiment":   f"{sent:+.4f}",
+            "Signal":      signal,
         })
-
     return pd.DataFrame(rows)
 
 
-with gr.Blocks(title="MarketPulse Dashboard", theme=gr.themes.Soft()) as dashboard:
+#
+with gr.Blocks(
+    title="MarketPulse",
+    css=CUSTOM_CSS,
+    theme=gr.themes.Base(
+        primary_hue="blue",
+        neutral_hue="slate",
+        font=[gr.themes.GoogleFont("Inter"), "sans-serif"],
+    ),
+) as dashboard:
 
-    gr.Markdown("# MarketPulse — Real-Time Stock Prediction Dashboard")
-    gr.Markdown("Live price predictions using FinBERT sentiment analysis + LSTM. Refreshes every 60 seconds.")
+    gr.HTML("""
+    <div class="mp-header">
+        <h1>MarketPulse</h1>
+        <p>REAL-TIME STOCK PREDICTION · FINBERT SENTIMENT · LSTM MODELS</p>
+        <div class="mp-live-badge">Live Pipeline</div>
+    </div>
+    <div class="mp-stats-row">
+        <div class="mp-stat-card">
+            <div class="mp-stat-label">Tickers Tracked</div>
+            <div class="mp-stat-value">10</div>
+            <div class="mp-stat-sub">^NDX SPY AAPL MSFT + 6 more</div>
+        </div>
+        <div class="mp-stat-card">
+            <div class="mp-stat-label">Models Trained</div>
+            <div class="mp-stat-value">120</div>
+            <div class="mp-stat-sub">12 models × 10 tickers</div>
+        </div>
+        <div class="mp-stat-card">
+            <div class="mp-stat-label">Best MAPE</div>
+            <div class="mp-stat-value">2.0%</div>
+            <div class="mp-stat-sub">GRU on AAPL</div>
+        </div>
+        <div class="mp-stat-card">
+            <div class="mp-stat-label">Poll Interval</div>
+            <div class="mp-stat-value">5m</div>
+            <div class="mp-stat-sub">Kafka → Redis → Neon</div>
+        </div>
+    </div>
+    """)
 
     with gr.Row():
-        ticker_selector = gr.Dropdown(
-            choices=TICKERS,
-            value="AAPL",
-            label="Select Ticker"
-        )
-        refresh_btn = gr.Button("Refresh Data", variant="primary")
+        with gr.Column(scale=3):
+            ticker_selector = gr.Dropdown(
+                choices=TICKERS,
+                value="AAPL",
+                label="Select Ticker",
+                interactive=True,
+            )
+        with gr.Column(scale=1):
+            refresh_btn = gr.Button("⟳  Refresh", variant="primary")
 
     with gr.Row():
         with gr.Column(scale=2):
-            prediction_chart = gr.Plot(label="Actual vs Predicted Price")
+            prediction_chart = gr.Plot(label="Price Chart")
         with gr.Column(scale=1):
-            sentiment_chart  = gr.Plot(label="Sentiment Scores")
+            sentiment_chart = gr.Plot(label="Sentiment")
 
-    with gr.Row():
-        summary_table = gr.Dataframe(label="Latest Predictions", interactive=False)
+    gr.HTML('<div class="mp-section-label" style="margin-top:8px;">Latest Predictions</div>')
+    summary_table = gr.Dataframe(interactive=False, wrap=True)
 
-    with gr.Row():
-        metrics_table = gr.Dataframe(label="Model Comparison Metrics", interactive=False)
+    gr.HTML('<div class="mp-section-label" style="margin-top:8px;">Model Performance Metrics</div>')
+    metrics_table = gr.Dataframe(interactive=False, wrap=True)
+
+    gr.HTML("""
+    <div style="margin-top:32px; padding-top:16px; border-top:1px solid rgba(99,179,237,0.1);
+                font-family:'DM Mono',monospace; font-size:0.68rem; color:#4a5568;
+                display:flex; justify-content:space-between;">
+        <span>MarketPulse · Built with FinBERT + LSTM · Kafka · Redis · Neon PostgreSQL</span>
+        <span>Predictions update every market day</span>
+    </div>
+    """)
 
     def refresh(ticker):
         return (
             build_prediction_chart(ticker),
             build_sentiment_bar(),
             get_summary_table(),
-            fetch_model_metrics()
+            fetch_model_metrics(),
         )
 
     ticker_selector.change(
         fn=refresh,
         inputs=[ticker_selector],
-        outputs=[prediction_chart, sentiment_chart, summary_table, metrics_table]
+        outputs=[prediction_chart, sentiment_chart, summary_table, metrics_table],
     )
-
     refresh_btn.click(
         fn=refresh,
         inputs=[ticker_selector],
-        outputs=[prediction_chart, sentiment_chart, summary_table, metrics_table]
+        outputs=[prediction_chart, sentiment_chart, summary_table, metrics_table],
     )
-
     dashboard.load(
         fn=refresh,
         inputs=[ticker_selector],
-        outputs=[prediction_chart, sentiment_chart, summary_table, metrics_table]
+        outputs=[prediction_chart, sentiment_chart, summary_table, metrics_table],
     )
-
 
 if __name__ == "__main__":
     dashboard.launch(server_name="0.0.0.0", server_port=7860)
