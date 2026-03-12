@@ -224,9 +224,9 @@ def get_summary_table():
     return pd.DataFrame(rows)
 
 
-with gr.Blocks(title="SentimentEdge Dashboard", theme=gr.themes.Soft()) as dashboard:
+with gr.Blocks(title="MarketPulse Dashboard", theme=gr.themes.Soft()) as dashboard:
 
-    gr.Markdown("# SentimentEdge — Real-Time Stock Prediction Dashboard")
+    gr.Markdown("# MarketPulse — Real-Time Stock Prediction Dashboard")
     gr.Markdown("Live price predictions using FinBERT sentiment analysis + LSTM. Refreshes every 60 seconds.")
 
     with gr.Row():
