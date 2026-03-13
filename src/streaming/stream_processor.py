@@ -28,6 +28,7 @@ from config.settings import (
     R2_BUCKET_NAME
 )
 from src.mlops.drift_monitor import check_and_handle_drift
+from src.processing.sentiment_scorer import score_headlines
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -240,7 +241,15 @@ def run_processor():
             ticker    = tick.get("ticker")
             date      = tick.get("date")
             close     = tick.get("close")
-            sentiment = tick.get("finbert_score", 0.0)
+            headlines = tick.get("headlines", [])
+
+            # Score sentiment in the processor (FinBERT runs here, not in the producer)
+            finbert_score, _ = score_headlines(headlines)
+            sentiment = finbert_score
+
+            # Store scored sentiment back into tick for drift monitoring
+            tick["finbert_score"] = sentiment
+            tick["vader_score"] = 0.0
 
             recent_ticks[ticker].append(tick)
             if len(recent_ticks[ticker]) > DRIFT_CHECK_INTERVAL:

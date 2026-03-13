@@ -14,7 +14,6 @@ from config.settings import (
 )
 from src.ingestion.price_fetcher import fetch_latest_tick
 from src.ingestion.news_fetcher import fetch_latest_headlines
-from src.processing.sentiment_scorer import score_headlines
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -55,13 +54,10 @@ def build_tick_payload(ticker):
         return None
 
     headlines = fetch_latest_headlines(ticker)
-    finbert_score, vader_score = score_headlines(headlines)
 
     payload = {
         **price,
         "headlines": headlines,
-        "finbert_score": finbert_score,
-        "vader_score": vader_score,
         "ingested_at": datetime.utcnow().isoformat()
     }
     return payload
@@ -93,7 +89,7 @@ def run_producer():
                     key=ticker,
                     value=payload
                 )
-                logger.info(f"Published tick for {ticker}: close={payload['close']} sentiment={payload['finbert_score']:.3f}")
+                logger.info(f"Published tick for {ticker}: close={payload['close']} headlines={len(payload['headlines'])}")
 
             except Exception as e:
                 logger.error(f"Failed to publish tick for {ticker}: {e}")
