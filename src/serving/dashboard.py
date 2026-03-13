@@ -249,6 +249,7 @@ CHART_LAYOUT = dict(
         borderwidth=1,
         font=dict(color="#a0aec0", size=11),
     ),
+    autosize=False,
     margin=dict(l=48, r=24, t=44, b=36),
     hoverlabel=dict(
         bgcolor="#0d1424",
@@ -527,9 +528,9 @@ with gr.Blocks(
 
     with gr.Row():
         with gr.Column(scale=2):
-            prediction_chart = gr.Plot(label="Price Chart")
+            prediction_chart = gr.Plot(label="Price Chart", min_width=0)
         with gr.Column(scale=1):
-            sentiment_chart = gr.Plot(label="Sentiment")
+            sentiment_chart = gr.Plot(label="Sentiment", min_width=0)
 
     gr.HTML('<div class="mp-section-label" style="margin-top:16px;">Latest Predictions</div>')
     summary_table = gr.Dataframe(interactive=False, wrap=True)
