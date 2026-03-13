@@ -22,7 +22,7 @@ torch==2.3.0
 nltk==3.8.1
 
 # Data ingestion
-yfinance==0.2.40
+yfinance
 requests==2.32.2
 
 # MLflow and experiment tracking
