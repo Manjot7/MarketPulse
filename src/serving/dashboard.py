@@ -225,6 +225,12 @@ tr:hover td { background: rgba(99, 179, 237, 0.04) !important; }
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: var(--bg-primary); }
 ::-webkit-scrollbar-thumb { background: var(--border-bright); border-radius: 3px; }
+
+/* Hard-cap chart heights to prevent Gradio expanding them */
+#price-chart-col, #sentiment-chart-col { max-height: 360px !important; overflow: hidden !important; }
+#price-chart, #sentiment-chart { max-height: 360px !important; }
+#price-chart .gradio-plot, #sentiment-chart .gradio-plot { height: 320px !important; max-height: 320px !important; }
+#price-chart svg, #sentiment-chart svg { max-height: 320px !important; }
 """
 
 CHART_LAYOUT = dict(
@@ -527,10 +533,10 @@ with gr.Blocks(
             refresh_btn = gr.Button("⟳  Refresh", variant="primary")
 
     with gr.Row():
-        with gr.Column(scale=2):
-            prediction_chart = gr.Plot(label="Price Chart", min_width=0)
-        with gr.Column(scale=1):
-            sentiment_chart = gr.Plot(label="Sentiment", min_width=0)
+        with gr.Column(scale=2, elem_id="price-chart-col"):
+            prediction_chart = gr.Plot(label="Price Chart", min_width=0, elem_id="price-chart")
+        with gr.Column(scale=1, elem_id="sentiment-chart-col"):
+            sentiment_chart = gr.Plot(label="Sentiment", min_width=0, elem_id="sentiment-chart")
 
     gr.HTML('<div class="mp-section-label" style="margin-top:16px;">Latest Predictions</div>')
     summary_table = gr.Dataframe(interactive=False, wrap=True)
