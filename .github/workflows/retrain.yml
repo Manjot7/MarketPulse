@@ -34,7 +34,6 @@ jobs:
 
       - name: Run retraining pipeline
         env:
-          NEWSAPI_KEY:          ${{ secrets.NEWSAPI_KEY }}
           DAGSHUB_USERNAME:     ${{ secrets.DAGSHUB_USERNAME }}
           DAGSHUB_TOKEN:        ${{ secrets.DAGSHUB_TOKEN }}
           MLFLOW_TRACKING_URI:  ${{ secrets.MLFLOW_TRACKING_URI }}

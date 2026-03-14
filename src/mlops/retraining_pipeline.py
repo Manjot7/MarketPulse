@@ -83,6 +83,42 @@ def log_retraining_run(run_id, old_mae, new_mae, promoted, triggered_by="github_
         logger.warning(f"Could not write retraining log: {e}")
 
 
+def fetch_sentiment_for_all_tickers(tickers, start_date, end_date):
+    """
+    Fetch and score headlines for all tickers across the training date range.
+    Returns a single combined sentiment DataFrame with finbert_score and vader_score columns.
+    """
+    all_sentiment = []
+
+    for ticker in tickers:
+        logger.info(f"Fetching headlines for {ticker}...")
+        try:
+            headlines_df = fetch_headlines_range(ticker, start_date, end_date)
+            scored_df    = score_dataframe(headlines_df)
+            all_sentiment.append(scored_df)
+            logger.info(f"{ticker}: sentiment scoring complete")
+        except Exception as e:
+            logger.warning(f"Sentiment fetch/score failed for {ticker}: {e}. Using zero sentiment.")
+            # Build a zeroed-out fallback so this ticker doesn't block training
+            dates = pd.date_range(start=start_date, end=end_date, freq="B")
+            fallback = pd.DataFrame({
+                "Date":          [d.strftime("%Y-%m-%d") for d in dates],
+                "Ticker":        ticker,
+                "headlines":     [[] for _ in dates],
+                "headline_count": 0,
+                "finbert_score": 0.0,
+                "vader_score":   0.0
+            })
+            all_sentiment.append(fallback)
+
+    if not all_sentiment:
+        return pd.DataFrame()
+
+    combined = pd.concat(all_sentiment, ignore_index=True)
+    logger.info(f"Sentiment ready: {len(combined)} rows across {len(tickers)} tickers")
+    return combined
+
+
 def run_retraining(triggered_by="github_actions"):
     """
     Main retraining entrypoint.
@@ -96,7 +132,10 @@ def run_retraining(triggered_by="github_actions"):
     new_rows  = get_new_row_count(last_date)
 
     if new_rows < RETRAIN_MIN_NEW_ROWS and triggered_by != "drift_monitor_emergency":
-        logger.info(f"Only {new_rows} new rows since {last_date}. Minimum is {RETRAIN_MIN_NEW_ROWS}. Skipping retraining.")
+        logger.info(
+            f"Only {new_rows} new rows since {last_date}. "
+            f"Minimum is {RETRAIN_MIN_NEW_ROWS}. Skipping retraining."
+        )
         return
 
     if triggered_by == "drift_monitor_emergency":
@@ -105,16 +144,32 @@ def run_retraining(triggered_by="github_actions"):
         logger.info(f"Sufficient new data found ({new_rows} rows). Starting retraining...")
 
     from datetime import date
-    end_date = str(date.today())
+    start_date = "2020-01-01"
+    end_date   = str(date.today())
 
-    price_df     = fetch_all_tickers(TICKERS, start="2020-01-01", end=end_date)
+    # ── Price + technical indicators ──────────────────────────────────────────
+    logger.info("Fetching price data and computing technical indicators...")
+    price_df      = fetch_all_tickers(TICKERS, start=start_date, end=end_date)
     indicators_df = compute_all_tickers(price_df)
 
-    logger.info("Feature preparation complete. Retraining models...")
+    # ── Sentiment ─────────────────────────────────────────────────────────────
+    logger.info("Fetching and scoring sentiment for all tickers...")
+    sentiment_df = fetch_sentiment_for_all_tickers(TICKERS, start_date, end_date)
 
-    # Import trainer here to avoid circular imports at module load time
+    # ── Merge all features ────────────────────────────────────────────────────
+    logger.info("Merging price, indicators, and sentiment features...")
+    features_df = merge_features(price_df, sentiment_df, indicators_df)
+
+    # Save per-ticker feature files (used by drift monitor)
+    for ticker in TICKERS:
+        ticker_df = features_df[features_df["Ticker"] == ticker]
+        if not ticker_df.empty:
+            save_features(ticker_df, ticker)
+
+    # ── Train ─────────────────────────────────────────────────────────────────
+    logger.info("Feature preparation complete. Retraining models...")
     from src.training.trainer import train_all_models
-    results = train_all_models(indicators_df)
+    results = train_all_models(features_df)
 
     if results:
         best_result = min(results, key=lambda r: r.get("mae", float("inf")))
