@@ -46,7 +46,8 @@ def build_producer():
 def build_tick_payload(ticker):
     """
     Build a single enriched tick payload for a given ticker.
-    Combines latest price data + sentiment score into one JSON message.
+    Combines latest OHLCV + technical indicators (from price_fetcher)
+    + raw headlines (scored by the processor) into one JSON message.
     Returns None if price data is unavailable.
     """
     price = fetch_latest_tick(ticker)
@@ -89,7 +90,11 @@ def run_producer():
                     key=ticker,
                     value=payload
                 )
-                logger.info(f"Published tick for {ticker}: close={payload['close']} headlines={len(payload['headlines'])}")
+                logger.info(
+                    f"Published tick for {ticker}: close={payload['close']} "
+                    f"rsi={payload.get('rsi', 'N/A')} macd={payload.get('macd', 'N/A')} "
+                    f"headlines={len(payload['headlines'])}"
+                )
 
             except Exception as e:
                 logger.error(f"Failed to publish tick for {ticker}: {e}")

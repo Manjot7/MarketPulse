@@ -5,7 +5,7 @@ load_dotenv()
 
 # Tickers
 TICKERS = [
-    "NDX", "SPY", "AAPL", "MSFT", "GOOGL",
+    "^NDX", "SPY", "AAPL", "MSFT", "GOOGL",
     "NVDA", "TSLA", "META", "JPM", "AMZN"
 ]
 

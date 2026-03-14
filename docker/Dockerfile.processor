@@ -6,7 +6,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc g++ libpq-dev && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install heavy packages first with long timeouts to avoid build failures
+RUN pip install --no-cache-dir --timeout=300 --retries=5 torch==2.3.0 && \
+    pip install --no-cache-dir --timeout=300 --retries=5 tensorflow==2.16.1 && \
+    # Pin Keras to match the version used on Kaggle during training
+    pip install --no-cache-dir --timeout=120 --retries=3 keras==3.10.0 && \
+    pip install --no-cache-dir --timeout=120 --retries=3 -r requirements.txt
 
 COPY . .
 

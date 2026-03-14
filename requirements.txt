@@ -6,7 +6,7 @@ scipy==1.13.0
 
 # Deep learning
 tensorflow==2.16.1
-keras==3.3.3
+keras==3.10.0
 
 # Gradient boosting
 xgboost==2.0.3
