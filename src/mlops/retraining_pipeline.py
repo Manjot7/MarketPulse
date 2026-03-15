@@ -169,11 +169,30 @@ def run_retraining(triggered_by="github_actions"):
     # ── Train ─────────────────────────────────────────────────────────────────
     logger.info("Feature preparation complete. Retraining models...")
     from src.training.trainer import train_all_models
+    from src.mlops.experiment_tracker import promote_best_model_for_ticker
     results = train_all_models(features_df)
 
     if results:
         best_result = min(results, key=lambda r: r.get("mae", float("inf")))
         logger.info(f"Best model this run: {best_result['model']} | MAE={best_result['mae']}")
+
+        # Promote best sentiment-capable model per ticker to production
+        # Groups results by ticker and promotes the best one
+        logger.info("Promoting best models per ticker...")
+        from itertools import groupby
+        dl_model_names = {"LSTM-Baseline", "FinBERT-LSTM", "GRU", "BiLSTM", "CNN-LSTM"}
+        dl_results_only = [r for r in results if r.get("model") in dl_model_names]
+
+        ticker_results = {}
+        for r in dl_results_only:
+            ticker = r.get("ticker")
+            if ticker not in ticker_results:
+                ticker_results[ticker] = []
+            ticker_results[ticker].append(r)
+
+        for ticker, ticker_dl_results in ticker_results.items():
+            promote_best_model_for_ticker(ticker, ticker_dl_results)
+
     else:
         logger.warning("No results returned from retraining")
 

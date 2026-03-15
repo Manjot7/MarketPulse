@@ -4,12 +4,14 @@ import os
 import mlflow
 import mlflow.sklearn
 import mlflow.tensorflow
+import psycopg2
 
 from config.settings import (
     MLFLOW_TRACKING_URI,
     MLFLOW_EXPERIMENT_NAME,
     DAGSHUB_USERNAME,
-    DAGSHUB_TOKEN
+    DAGSHUB_TOKEN,
+    DATABASE_URL
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
@@ -109,16 +111,21 @@ def promote_best_model_for_ticker(ticker, dl_results):
     """
     candidates = [
         r for r in dl_results
-        if r.get("model") in SENTIMENT_CAPABLE_MODELS and r.get("mape_pct") is not None
+        if r.get("model") in SENTIMENT_CAPABLE_MODELS
+        and (r.get("mape_pct") is not None or r.get("mape") is not None)
     ]
 
     if not candidates:
         logger.warning(f"No sentiment-capable model results found for {ticker}. Skipping promotion.")
         return
 
-    best = min(candidates, key=lambda r: r["mape_pct"])
+    # Support both mape_pct (Kaggle notebook) and mape (trainer.py evaluator)
+    def get_mape(r):
+        return r["mape_pct"] if r.get("mape_pct") is not None else r.get("mape", float("inf"))
+
+    best            = min(candidates, key=get_mape)
     best_model_name = best["model"]
-    best_mape       = best["mape_pct"]
+    best_mape       = get_mape(best)
 
     logger.info(
         f"Best sentiment-capable model for {ticker}: {best_model_name} "
@@ -162,3 +169,25 @@ def promote_best_model_for_ticker(ticker, dl_results):
         )
     except Exception as e:
         logger.warning(f"Model promotion failed for {ticker}: {e}")
+
+    # Write to production_models table — this is what the stream processor
+    # reads to know which model to load from R2 at inference time
+    try:
+        conn   = psycopg2.connect(DATABASE_URL)
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            INSERT INTO production_models (ticker, model_name, mape_pct, promoted_at)
+            VALUES (%s, %s, %s, NOW())
+            ON CONFLICT (ticker) DO UPDATE
+                SET model_name  = EXCLUDED.model_name,
+                    mape_pct    = EXCLUDED.mape_pct,
+                    promoted_at = NOW()
+            """,
+            (ticker, best_model_name, float(best_mape))
+        )
+        conn.commit()
+        conn.close()
+        logger.info(f"Production model for {ticker} set to {best_model_name} in DB")
+    except Exception as e:
+        logger.warning(f"Production model DB write failed for {ticker}: {e}")
