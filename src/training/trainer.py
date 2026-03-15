@@ -1,8 +1,8 @@
 import logging
 import os
-import pickle
 
 import boto3
+import joblib
 import mlflow
 import mlflow.sklearn
 import mlflow.tensorflow
@@ -35,51 +35,71 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(mess
 logger = logging.getLogger(__name__)
 
 
-def save_model_locally(model, model_name, ticker):
+def get_r2_client():
+    return boto3.client(
+        "s3",
+        endpoint_url=R2_ENDPOINT_URL,
+        aws_access_key_id=R2_ACCESS_KEY_ID,
+        aws_secret_access_key=R2_SECRET_ACCESS_KEY
+    )
+
+
+def upload_to_r2(local_path, r2_key):
     """
-    Save a trained model to the local models directory.
-    Keras models use SavedModel format, sklearn/xgb use pickle.
-    Returns the local save path.
-    """
-    os.makedirs(MODELS_DIR, exist_ok=True)
-    path = os.path.join(MODELS_DIR, f"{model_name}_{ticker}")
-
-    try:
-        if hasattr(model, "save"):
-            model.save(path)
-        else:
-            with open(f"{path}.pkl", "wb") as f:
-                pickle.dump(model, f)
-            path = f"{path}.pkl"
-
-        logger.info(f"Model saved: {path}")
-        return path
-
-    except Exception as e:
-        logger.warning(f"Model save failed for {model_name}_{ticker}: {e}")
-        return None
-
-
-def upload_model_to_r2(local_path, model_name, ticker):
-    """
-    Upload a saved model file to Cloudflare R2 for archival.
+    Upload a file to Cloudflare R2 using the exact key provided.
+    Key format must match what stream_processor.py expects:
+      model:  models/{ticker}/{model_name}/{model_name}_{ticker}
+      scaler: models/{ticker}/{model_name}/{model_name}_{ticker}_scaler
     """
     if not local_path or not os.path.exists(local_path):
+        logger.warning(f"File not found, skipping R2 upload: {local_path}")
+        return
+
+    if not all([R2_ENDPOINT_URL, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY]):
+        logger.warning("R2 credentials not set. Skipping upload.")
         return
 
     try:
-        client  = boto3.client(
-            "s3",
-            endpoint_url=R2_ENDPOINT_URL,
-            aws_access_key_id=R2_ACCESS_KEY_ID,
-            aws_secret_access_key=R2_SECRET_ACCESS_KEY
-        )
-        r2_key  = f"models/{ticker}/{model_name}/{os.path.basename(local_path)}"
+        client = get_r2_client()
         client.upload_file(local_path, R2_BUCKET_NAME, r2_key)
-        logger.info(f"Model uploaded to R2: {r2_key}")
+        logger.info(f"Uploaded to R2: {r2_key}")
+    except Exception as e:
+        logger.warning(f"R2 upload failed for {r2_key}: {e}")
+
+
+def save_and_upload_model(model, model_name, ticker, scaler=None):
+    """
+    Save model and scaler locally then upload both to R2.
+    R2 key format matches exactly what stream_processor.py expects:
+      model:  models/{ticker}/{model_name}/{model_name}_{ticker}
+      scaler: models/{ticker}/{model_name}/{model_name}_{ticker}_scaler
+    """
+    os.makedirs(MODELS_DIR, exist_ok=True)
+
+    # Save and upload model
+    try:
+        if hasattr(model, "save"):
+            local_path = os.path.join(MODELS_DIR, f"{model_name}_{ticker}.keras")
+            model.save(local_path)
+        else:
+            local_path = os.path.join(MODELS_DIR, f"{model_name}_{ticker}.pkl")
+            joblib.dump(model, local_path)
+
+        upload_to_r2(local_path, f"models/{ticker}/{model_name}/{model_name}_{ticker}")
 
     except Exception as e:
-        logger.warning(f"R2 upload failed for {model_name}_{ticker}: {e}")
+        logger.warning(f"Model save/upload failed for {model_name}_{ticker}: {e}")
+        return
+
+    # Save and upload scaler
+    if scaler is not None:
+        try:
+            scaler_path = os.path.join(MODELS_DIR, f"{model_name}_{ticker}_scaler.pkl")
+            joblib.dump(scaler, scaler_path)
+            upload_to_r2(scaler_path, f"models/{ticker}/{model_name}/{model_name}_{ticker}_scaler")
+            logger.info(f"Scaler uploaded to R2 for {model_name}/{ticker}")
+        except Exception as e:
+            logger.warning(f"Scaler save/upload failed for {model_name}_{ticker}: {e}")
 
 
 def write_metrics_to_db(metrics):
@@ -160,8 +180,7 @@ def train_deep_learning_models(ticker_df, ticker):
 
             metrics = regression_metrics(y_true, y_pred, model_name, ticker)
 
-            local_path = save_model_locally(model, model_name, ticker)
-            upload_model_to_r2(local_path, model_name, ticker)
+            save_and_upload_model(model, model_name, ticker, scaler=scaler)
             write_metrics_to_db(metrics)
 
             params = {
@@ -218,8 +237,7 @@ def train_tabular_models(ticker_df, ticker):
             y_pred  = model.predict(X_test)
             metrics = regression_metrics(y_test, y_pred, model_name, ticker)
 
-            local_path = save_model_locally(model, model_name, ticker)
-            upload_model_to_r2(local_path, model_name, ticker)
+            save_and_upload_model(model, model_name, ticker)
             write_metrics_to_db(metrics)
 
             log_run(model_name, ticker, {"ticker": ticker}, {
@@ -255,8 +273,7 @@ def train_tabular_models(ticker_df, ticker):
             y_pred  = model.predict(X_test_c)
             metrics = classification_metrics(y_test_c, y_pred, model_name, ticker)
 
-            local_path = save_model_locally(model, model_name, ticker)
-            upload_model_to_r2(local_path, model_name, ticker)
+            save_and_upload_model(model, model_name, ticker)
 
             log_run(model_name, ticker, {"ticker": ticker}, {
                 "accuracy": metrics["accuracy"],
