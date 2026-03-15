@@ -1,7 +1,7 @@
 import logging
 
+import numpy as np
 import pandas as pd
-import pandas_ta as ta
 
 from config.settings import (
     RSI_PERIOD,
@@ -14,6 +14,53 @@ from config.settings import (
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
+
+
+def _ema(series, period):
+    return series.ewm(span=period, adjust=False).mean()
+
+
+def _rsi(series, period):
+    delta  = series.diff()
+    gain   = delta.clip(lower=0)
+    loss   = -delta.clip(upper=0)
+    avg_gain = gain.ewm(com=period - 1, adjust=False).mean()
+    avg_loss = loss.ewm(com=period - 1, adjust=False).mean()
+    rs = avg_gain / avg_loss.replace(0, np.nan)
+    return 100 - (100 / (1 + rs))
+
+
+def _macd(series, fast, slow, signal):
+    ema_fast   = _ema(series, fast)
+    ema_slow   = _ema(series, slow)
+    macd_line  = ema_fast - ema_slow
+    signal_line = _ema(macd_line, signal)
+    hist       = macd_line - signal_line
+    return macd_line, signal_line, hist
+
+
+def _bbands(series, period):
+    mid   = series.rolling(period).mean()
+    std   = series.rolling(period).std()
+    upper = mid + 2 * std
+    lower = mid - 2 * std
+    width = (upper - lower) / mid.replace(0, np.nan)
+    return upper, mid, lower, width
+
+
+def _obv(close, volume):
+    direction = np.sign(close.diff()).fillna(0)
+    return (direction * volume).cumsum()
+
+
+def _atr(high, low, close, period=14):
+    prev_close = close.shift(1)
+    tr = pd.concat([
+        high - low,
+        (high - prev_close).abs(),
+        (low  - prev_close).abs()
+    ], axis=1).max(axis=1)
+    return tr.ewm(com=period - 1, adjust=False).mean()
 
 
 def compute_indicators(df):
@@ -31,35 +78,30 @@ def compute_indicators(df):
     low    = df["Low"]
     volume = df["Volume"]
 
-    # RSI: momentum oscillator measuring speed and change of price movements
-    df["rsi"] = ta.rsi(close, length=RSI_PERIOD)
+    # RSI
+    df["rsi"] = _rsi(close, RSI_PERIOD)
 
-    # MACD: trend-following momentum indicator
-    macd = ta.macd(close, fast=MACD_FAST, slow=MACD_SLOW, signal=MACD_SIGNAL)
-    if macd is not None:
-        df["macd"]        = macd[f"MACD_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"]
-        df["macd_signal"] = macd[f"MACDs_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"]
-        df["macd_hist"]   = macd[f"MACDh_{MACD_FAST}_{MACD_SLOW}_{MACD_SIGNAL}"]
+    # MACD
+    df["macd"], df["macd_signal"], df["macd_hist"] = _macd(
+        close, MACD_FAST, MACD_SLOW, MACD_SIGNAL
+    )
 
-    # Bollinger Bands: volatility bands around a simple moving average
-    bb = ta.bbands(close, length=BB_PERIOD)
-    if bb is not None:
-        df["bb_upper"]  = bb[f"BBU_{BB_PERIOD}_2.0"]
-        df["bb_mid"]    = bb[f"BBM_{BB_PERIOD}_2.0"]
-        df["bb_lower"]  = bb[f"BBL_{BB_PERIOD}_2.0"]
-        df["bb_width"]  = (df["bb_upper"] - df["bb_lower"]) / df["bb_mid"]
+    # Bollinger Bands
+    df["bb_upper"], df["bb_mid"], df["bb_lower"], df["bb_width"] = _bbands(
+        close, BB_PERIOD
+    )
 
-    # EMA: exponential moving average giving more weight to recent prices
+    # EMA
     for period in EMA_PERIODS:
-        df[f"ema_{period}"] = ta.ema(close, length=period)
+        df[f"ema_{period}"] = _ema(close, period)
 
-    # OBV: on-balance volume measures buying and selling pressure
-    df["obv"] = ta.obv(close, volume)
+    # OBV
+    df["obv"] = _obv(close, volume)
 
-    # ATR: average true range measures market volatility
-    df["atr"] = ta.atr(high, low, close, length=14)
+    # ATR
+    df["atr"] = _atr(high, low, close, period=14)
 
-    # Price momentum features
+    # Price momentum
     df["price_change_1d"]  = close.pct_change(1)
     df["price_change_5d"]  = close.pct_change(5)
     df["price_change_10d"] = close.pct_change(10)
@@ -69,17 +111,20 @@ def compute_indicators(df):
     df["volatility_20d"] = close.pct_change().rolling(20).std()
 
     # Volume features
-    df["volume_ma_10"]   = volume.rolling(10).mean()
-    df["volume_ratio"]   = volume / df["volume_ma_10"]
+    df["volume_ma_10"] = volume.rolling(10).mean()
+    df["volume_ratio"] = volume / df["volume_ma_10"].replace(0, np.nan)
 
-    # Direction label for classification models (1 = price went up, 0 = price went down)
+    # Direction label for classification models
     df["direction"] = (close.shift(-1) > close).astype(int)
 
     rows_before = len(df)
-    df = df.dropna()
+    df          = df.dropna()
     rows_after  = len(df)
 
-    logger.info(f"Technical indicators computed. Dropped {rows_before - rows_after} NaN rows from lookback period.")
+    logger.info(
+        f"Technical indicators computed. "
+        f"Dropped {rows_before - rows_after} NaN rows from lookback period."
+    )
     return df
 
 
