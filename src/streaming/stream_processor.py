@@ -292,6 +292,92 @@ def build_current_df(ticker):
     return df[available].dropna()
 
 
+def backfill_actual_closes(db_conn):
+    """
+    After market close each day, fetch the actual closing price from yfinance
+    and write it back to any predictions rows that are missing actual_close.
+    Called once per processor cycle — yfinance calls are only made for dates
+    that actually have NULL actual_close to avoid unnecessary API hits.
+    """
+    import yfinance as yf
+    from datetime import date, timedelta
+
+    try:
+        cursor = db_conn.cursor()
+
+        # Find all ticker/date pairs that still need actual_close filled in
+        cursor.execute(
+            """
+            SELECT DISTINCT ticker, date
+            FROM predictions
+            WHERE actual_close IS NULL
+              AND date < CURRENT_DATE
+            ORDER BY date DESC
+            LIMIT 50
+            """
+        )
+        rows = cursor.fetchall()
+
+        if not rows:
+            return
+
+        logger.info(f"Backfilling actual closes for {len(rows)} prediction rows...")
+
+        # Group by ticker to minimise yfinance calls
+        from collections import defaultdict
+        ticker_dates = defaultdict(list)
+        for ticker, dt in rows:
+            ticker_dates[ticker].append(dt)
+
+        for ticker, dates in ticker_dates.items():
+            try:
+                min_date = min(dates) - timedelta(days=1)
+                max_date = max(dates) + timedelta(days=1)
+
+                df = yf.download(
+                    ticker,
+                    start=str(min_date),
+                    end=str(max_date),
+                    progress=False,
+                    auto_adjust=True
+                )
+
+                if df.empty:
+                    continue
+
+                # Flatten MultiIndex columns if present
+                if isinstance(df.columns, pd.MultiIndex):
+                    df.columns = df.columns.get_level_values(0)
+
+                df.index = pd.to_datetime(df.index).date
+
+                for dt in dates:
+                    if dt in df.index:
+                        actual = float(df.loc[dt, "Close"])
+                        cursor.execute(
+                            """
+                            UPDATE predictions
+                            SET actual_close = %s, updated_at = NOW()
+                            WHERE ticker = %s AND date = %s
+                              AND actual_close IS NULL
+                            """,
+                            (actual, ticker, dt)
+                        )
+                        logger.info(f"Backfilled actual close for {ticker} {dt}: ${actual:.2f}")
+
+            except Exception as e:
+                logger.warning(f"Backfill failed for {ticker}: {e}")
+
+        db_conn.commit()
+
+    except Exception as e:
+        logger.warning(f"Backfill query failed: {e}")
+        try:
+            db_conn.rollback()
+        except Exception:
+            pass
+
+
 def run_drift_check(ticker):
     reference_df = load_reference_data(ticker)
     current_df   = build_current_df(ticker)
@@ -315,6 +401,7 @@ def run_processor():
     db_conn            = psycopg2.connect(DATABASE_URL)
     models             = {}   # ticker -> (model, scaler)
     ticker_tick_counts = defaultdict(int)
+    last_backfill_date = None   # track so we only backfill once per calendar day
 
     # Restore tick buffers from Redis before processing any messages.
     # This means a restarted processor can produce predictions on the very
@@ -424,6 +511,13 @@ def run_processor():
             ticker_tick_counts[ticker] += 1
 
             logger.info(f"Processed tick #{tick_counter}: {ticker} close={close} pred={predicted_close}")
+
+            # Backfill actual closes once per calendar day after market close
+            from datetime import date as _date
+            today = _date.today()
+            if last_backfill_date != today:
+                backfill_actual_closes(db_conn)
+                last_backfill_date = today
 
             if ticker_tick_counts[ticker] % DRIFT_CHECK_INTERVAL == 0:
                 logger.info(f"Drift check interval reached for {ticker} ({ticker_tick_counts[ticker]} ticks)")
